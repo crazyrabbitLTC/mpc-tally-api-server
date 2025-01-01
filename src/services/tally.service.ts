@@ -5,22 +5,63 @@ export interface TallyServiceConfig {
   baseUrl?: string;
 }
 
+export type OrganizationsSortBy = "id" | "name" | "explore" | "popular";
+
+export interface OrganizationsSortInput {
+  isDescending: boolean;
+  sortBy: OrganizationsSortBy;
+}
+
+export interface PageInput {
+  afterCursor?: string;
+  beforeCursor?: string;
+  limit?: number;
+}
+
+export interface OrganizationsFiltersInput {
+  hasLogo?: boolean;
+  chainId?: string;
+  isMember?: boolean;
+  address?: string;
+}
+
+export interface OrganizationsInput {
+  filters?: OrganizationsFiltersInput;
+  page?: PageInput;
+  sort?: OrganizationsSortInput;
+}
+
+export interface ListDAOsParams {
+  limit?: number;
+  afterCursor?: string;
+  beforeCursor?: string;
+  sortBy?: OrganizationsSortBy;
+}
+
 export interface Organization {
-  name: string;
+  id: string;
   slug: string;
-  tokenOwnersCount: number;
-  delegatesCount: number;
-  proposalsCount: number;
-  hasActiveProposals: boolean;
+  name: string;
+  chainIds: string[];
   metadata?: {
     description?: string;
+    icon?: string;
+    websiteUrl?: string;
+    twitter?: string;
+    discord?: string;
+    github?: string;
+    termsOfService?: string;
+    governanceUrl?: string;
   };
+  hasActiveProposals: boolean;
+  proposalsCount: number;
+  delegatesCount: number;
+  tokenOwnersCount: number;
 }
 
 export interface PageInfo {
   firstCursor: string | null;
   lastCursor: string | null;
-  count: number;
 }
 
 export interface OrganizationsResponse {
@@ -30,37 +71,29 @@ export interface OrganizationsResponse {
   };
 }
 
-export interface ListDAOsParams {
-  limit?: number;
-  afterCursor?: string;
-}
-
 export class TallyService {
   private client: GraphQLClient;
   private static readonly DEFAULT_BASE_URL = 'https://api.tally.xyz/query';
 
   // GraphQL Queries
   private static readonly LIST_DAOS_QUERY = gql`
-    query Organizations($input: OrganizationsInput) {
+    query Organizations($input: OrganizationsInput!) {
       organizations(input: $input) {
         nodes {
           ... on Organization {
             id
             name
             slug
-            tokenOwnersCount
-            delegatesCount
+            chainIds
             proposalsCount
             hasActiveProposals
-            metadata {
-              description
-            }
+            tokenOwnersCount
+            delegatesCount
           }
         }
         pageInfo {
           firstCursor
           lastCursor
-          count
         }
       }
     }
@@ -75,23 +108,29 @@ export class TallyService {
   }
 
   /**
-   * List DAOs sorted by popularity (token holders and activity)
+   * List DAOs sorted by specified criteria
    * @param {ListDAOsParams} params - Parameters for listing DAOs
    * @returns {Promise<OrganizationsResponse>} List of DAOs and pagination info
    * @throws {Error} When the API request fails
    */
   async listDAOs(params: ListDAOsParams = {}): Promise<OrganizationsResponse> {
-    const limit = Math.min(params.limit || 20, 50);
-    const input = {
+    const input: OrganizationsInput = {
       sort: {
-        sortBy: "popular",
-        isDescending: true,
+        sortBy: params.sortBy || "popular",
+        isDescending: true
       },
       page: {
-        limit,
-        afterCursor: params.afterCursor,
-      },
+        limit: Math.min(params.limit || 20, 50)
+      }
     };
+
+    if (params.afterCursor) {
+      input.page!.afterCursor = params.afterCursor;
+    }
+
+    if (params.beforeCursor) {
+      input.page!.beforeCursor = params.beforeCursor;
+    }
 
     try {
       return await this.client.request(TallyService.LIST_DAOS_QUERY, { input });
@@ -102,12 +141,11 @@ export class TallyService {
 
   /**
    * Get OpenAI function definitions for the service
-   * These match the MCP tool schemas but in OpenAI's format
    */
   static getOpenAIFunctionDefinitions() {
     return [{
       name: "list_daos",
-      description: "List DAOs on Tally sorted by number of token holders and activity",
+      description: "List DAOs on Tally sorted by specified criteria",
       parameters: {
         type: "object",
         properties: {
@@ -118,6 +156,11 @@ export class TallyService {
           afterCursor: {
             type: "string",
             description: "Cursor for pagination",
+          },
+          sortBy: {
+            type: "string",
+            enum: ["id", "name", "explore", "popular"],
+            description: "How to sort the DAOs (default: popular). 'explore' prioritizes DAOs with live proposals",
           },
         },
       },
@@ -138,6 +181,11 @@ export class TallyService {
         `Proposals: ${dao.proposalsCount}\n` +
         `Active Proposals: ${dao.hasActiveProposals ? 'Yes' : 'No'}\n` +
         `Description: ${dao.metadata?.description || 'No description available'}\n` +
+        `Website: ${dao.metadata?.websiteUrl || 'N/A'}\n` +
+        `Twitter: ${dao.metadata?.twitter || 'N/A'}\n` +
+        `Discord: ${dao.metadata?.discord || 'N/A'}\n` +
+        `GitHub: ${dao.metadata?.github || 'N/A'}\n` +
+        `Governance: ${dao.metadata?.governanceUrl || 'N/A'}\n` +
         '---'
       ).join('\n\n');
   }
