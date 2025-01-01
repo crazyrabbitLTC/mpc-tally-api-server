@@ -1,12 +1,12 @@
 {
-  "name": "tally-api-server",
+  "name": "mpc-tally-api-server",
   "version": "1.0.0",
-  "description": "A TypeScript server boilerplate",
+  "description": "A Model Context Protocol (MCP) server for interacting with the Tally API, enabling AI agents to access DAO governance data",
   "type": "module",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "bin": {
-    "tally-api-server": "build/index.js"
+    "mpc-tally-api-server": "build/index.js"
   },
   "scripts": {
     "clean": "rm -rf build",
@@ -23,9 +23,13 @@
     "LICENSE"
   ],
   "keywords": [
+    "mcp",
+    "tally",
+    "dao",
+    "governance",
+    "ai",
     "typescript",
-    "server",
-    "boilerplate"
+    "graphql"
   ],
   "author": "",
   "license": "MIT",
