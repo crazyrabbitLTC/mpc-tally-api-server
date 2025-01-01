@@ -33,6 +33,12 @@ TALLY_API_KEY=your_api_key_here
 
 2. Get your API key from [Tally](https://tally.xyz)
 
+⚠️ **Security Note**: Keep your API key secure:
+- Never commit your `.env` file
+- Don't expose your API key in logs or error messages
+- Rotate your API key if it's ever exposed
+- Use environment variables for configuration
+
 ## Usage
 
 ### Running the Server

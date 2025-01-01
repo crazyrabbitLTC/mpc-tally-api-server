@@ -28,7 +28,7 @@ class MockGraphQLClient {
 
 // Live test configuration
 const LIVE_API_KEY = process.env.TALLY_API_KEY;
-console.log('API Key available:', !!LIVE_API_KEY);
+console.log('API Key available:', LIVE_API_KEY ? '✓' : '✗');
 const runLiveTests = !!LIVE_API_KEY;
 
 (runLiveTests ? describe : describe.skip)('TallyService Live Tests', () => {
