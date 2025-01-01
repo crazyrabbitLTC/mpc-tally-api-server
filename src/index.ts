@@ -1,9 +1,19 @@
 #!/usr/bin/env node
-import { startServer } from './server.js';
+import * as dotenv from 'dotenv';
+import { TallyServer } from './server.js';
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+// Load environment variables
+dotenv.config();
 
-startServer(port).catch((error) => {
-  console.error('Failed to start server:', error);
+const apiKey = process.env.TALLY_API_KEY;
+if (!apiKey) {
+  console.error("Error: TALLY_API_KEY environment variable is required");
+  process.exit(1);
+}
+
+// Create and start the server
+const server = new TallyServer(apiKey);
+server.start().catch((error) => {
+  console.error("Fatal error:", error);
   process.exit(1);
 }); 

@@ -94,6 +94,28 @@ export interface PageInfo {
   lastCursor: string | null;
 }
 
+interface Delegate {
+  id: string;
+  account: {
+    address: string;
+    bio?: string;
+    name?: string;
+    picture?: string | null;
+  };
+  votesCount: string;
+  delegatorsCount: number;
+  statement?: {
+    statementSummary?: string;
+  };
+}
+
+interface DelegatesResponse {
+  delegates: {
+    nodes: Delegate[];
+    pageInfo: PageInfo;
+  };
+}
+
 export interface OrganizationsResponse {
   organizations: {
     nodes: Organization[];
@@ -144,6 +166,10 @@ export class TallyService {
         chainIds
         governorIds
         tokenIds
+        hasActiveProposals
+        proposalsCount
+        delegatesCount
+        tokenOwnersCount
         metadata {
           description
           icon
@@ -163,6 +189,33 @@ export class TallyService {
         features {
           name
           enabled
+        }
+      }
+    }
+  `;
+
+  private static readonly LIST_DELEGATES_QUERY = gql`
+    query Delegates($input: DelegatesInput!) {
+      delegates(input: $input) {
+        nodes {
+          ... on Delegate {
+            id
+            account {
+              address
+              bio
+              name
+              picture
+            }
+            votesCount
+            delegatorsCount
+            statement {
+              statementSummary
+            }
+          }
+        }
+        pageInfo {
+          firstCursor
+          lastCursor
         }
       }
     }
@@ -202,12 +255,15 @@ export class TallyService {
     }
 
     if (params.slug) {
-      input.search = params.slug;
-      input.page!.limit = 1;
+      input.filters = {
+        ...input.filters,
+        slug: params.slug
+      };
     }
 
     try {
-      return await this.client.request(TallyService.LIST_DAOS_QUERY, { input });
+      const response = await this.client.request<OrganizationsResponse>(TallyService.LIST_DAOS_QUERY, { input });
+      return response;
     } catch (error) {
       throw new Error(`Failed to fetch DAOs: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -236,11 +292,7 @@ export class TallyService {
           websiteUrl: response.organization.metadata?.socials?.website || undefined,
           discord: response.organization.metadata?.socials?.discord || undefined,
           twitter: response.organization.metadata?.socials?.twitter || undefined,
-        },
-        hasActiveProposals: false,
-        proposalsCount: 0,
-        delegatesCount: 0,
-        tokenOwnersCount: 0
+        }
       };
       
       return dao;
@@ -299,7 +351,7 @@ export class TallyService {
    */
   static getOpenAIFunctionDefinitions() {
     return [{
-      name: "list_daos",
+      name: "list-daos",
       description: "List DAOs on Tally sorted by specified criteria",
       parameters: {
         type: "object",
@@ -321,7 +373,7 @@ export class TallyService {
       },
     },
     {
-      name: "get_dao",
+      name: "get-dao",
       description: "Get detailed information about a specific DAO",
       parameters: {
         type: "object",
@@ -333,6 +385,125 @@ export class TallyService {
           },
         },
       },
+    },
+    {
+      name: "list-delegates",
+      description: "List delegates for a specific organization with their metadata",
+      parameters: {
+        type: "object",
+        required: ["organizationIdOrSlug"],
+        properties: {
+          organizationIdOrSlug: {
+            type: "string",
+            description: "The organization's ID or slug (e.g., 'arbitrum' or 'eip155:1:123')",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of delegates to return (default: 20, max: 50)",
+          },
+          afterCursor: {
+            type: "string",
+            description: "Cursor for pagination",
+          },
+          hasVotes: {
+            type: "boolean",
+            description: "Filter for delegates with votes",
+          },
+          hasDelegators: {
+            type: "boolean",
+            description: "Filter for delegates with delegators",
+          },
+          isSeekingDelegation: {
+            type: "boolean",
+            description: "Filter for delegates seeking delegation",
+          },
+        },
+      },
     }];
+  }
+
+  /**
+   * List delegates for an organization with their metadata
+   * @param {string} organizationIdOrSlug - The organization's ID or slug
+   * @param {Object} options - Additional options for filtering and sorting
+   * @param {number} options.limit - Maximum number of delegates to return (default: 20, max: 50)
+   * @param {string} options.afterCursor - Cursor for pagination
+   * @param {boolean} options.hasVotes - Filter for delegates with votes
+   * @param {boolean} options.hasDelegators - Filter for delegates with delegators
+   * @param {boolean} options.isSeekingDelegation - Filter for delegates seeking delegation
+   * @returns {Promise<{ delegates: Array<Delegate>, pageInfo: PageInfo }>} List of delegates and pagination info
+   * @throws {Error} When the API request fails
+   */
+  public async listDelegates(input: {
+    organizationId?: string;
+    organizationSlug?: string;
+    limit?: number;
+    afterCursor?: string;
+    beforeCursor?: string;
+    hasVotes?: boolean;
+    hasDelegators?: boolean;
+    isSeekingDelegation?: boolean;
+  }): Promise<{
+    delegates: Delegate[];
+    pageInfo: PageInfo;
+  }> {
+    let organizationId = input.organizationId;
+
+    // If organizationId is not provided but slug is, get the DAO first
+    if (!organizationId && input.organizationSlug) {
+      const dao = await this.getDAO(input.organizationSlug);
+      organizationId = dao.id;
+    }
+
+    if (!organizationId) {
+      throw new Error('Either organizationId or organizationSlug must be provided');
+    }
+
+    try {
+      const response = await this.client.request<DelegatesResponse>(TallyService.LIST_DELEGATES_QUERY, {
+        input: {
+          filters: {
+            organizationId,
+            hasVotes: input.hasVotes,
+            hasDelegators: input.hasDelegators,
+            isSeekingDelegation: input.isSeekingDelegation,
+          },
+          sort: {
+            isDescending: true,
+            sortBy: 'votes',
+          },
+          page: {
+            limit: Math.min(input.limit || 20, 50),
+            afterCursor: input.afterCursor,
+            beforeCursor: input.beforeCursor,
+          },
+        },
+      });
+
+      return {
+        delegates: response.delegates.nodes,
+        pageInfo: response.delegates.pageInfo,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch delegates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Format a list of delegates into a human-readable string
+   * @param {Array<Delegate>} delegates - List of delegates to format
+   * @returns {string} Formatted string representation
+   */
+  static formatDelegatesList(delegates: Delegate[]): string {
+    return `Found ${delegates.length} delegates:\n\n` +
+      delegates.map(delegate =>
+        `${delegate.account.name || delegate.account.address}\n` +
+        `Address: ${delegate.account.address}\n` +
+        `Votes: ${delegate.votesCount}\n` +
+        `Delegators: ${delegate.delegatorsCount}\n` +
+        `Bio: ${delegate.account.bio || 'No bio available'}\n` +
+        `Statement: ${delegate.statement?.statementSummary || 'No statement available'}\n` +
+        '---'
+      ).join('\n\n');
   }
 } 
