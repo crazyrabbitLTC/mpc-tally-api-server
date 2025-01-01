@@ -50,6 +50,26 @@ const runLiveTests = !!LIVE_API_KEY;
       throw error;
     }
   });
+
+  test('should fetch a specific DAO from the live API', async () => {
+    try {
+      const dao = await service.getDAO('aave');
+      console.log('Live DAO Response:', dao);
+      expect(dao).toHaveProperty('id');
+      expect(dao).toHaveProperty('name');
+      expect(dao).toHaveProperty('metadata');
+      expect(dao.slug).toBe('aave');
+      
+      const formatted = TallyService.formatDAO(dao);
+      console.log('Formatted DAO:\n', formatted);
+      expect(formatted).toContain('Aave');
+      expect(formatted).toContain('Token Holders:');
+      expect(formatted).toContain('Delegates:');
+    } catch (error) {
+      console.error('Error fetching DAO from live API:', error);
+      throw error;
+    }
+  });
 });
 
 describe('TallyService', () => {
@@ -92,14 +112,37 @@ describe('TallyService', () => {
       slug: 'test-dao',
       name: 'Test DAO',
       chainIds: ['eip155:1'],
+      tokenIds: ['eip155:1/erc20:0x123'],
+      governorIds: ['eip155:1:0x456'],
       metadata: {
         description: 'Test Description',
-        websiteUrl: 'https://test.com'
+        icon: 'https://icon.com',
+        websiteUrl: 'https://test.com',
+        discord: 'discord.gg/test',
+        twitter: '@test',
+        socials: {
+          website: 'https://test.com',
+          discord: 'discord.gg/test',
+          twitter: '@test',
+          telegram: null,
+          discourse: null,
+          others: null
+        },
+        karmaName: null
       },
-      hasActiveProposals: true,
-      proposalsCount: 5,
-      delegatesCount: 10,
-      tokenOwnersCount: 100
+      features: [],
+      hasActiveProposals: false,
+      proposalsCount: 0,
+      delegatesCount: 0,
+      tokenOwnersCount: 0,
+      stats: {
+        proposalsCount: 0,
+        activeProposalsCount: 0,
+        tokenHoldersCount: 0,
+        votersCount: 0,
+        delegatesCount: 0,
+        delegatedVotesCount: '0'
+      }
     };
 
     test('should format the input correctly', async () => {
@@ -242,6 +285,119 @@ describe('TallyService', () => {
       
       const formatted = TallyService.formatDAOList(result.organizations.nodes);
       expect(formatted).toContain('Found 0 DAOs');
+    });
+  });
+
+  describe('getDAO', () => {
+    const mockOrganization: Organization = {
+      id: '1',
+      slug: 'test-dao',
+      name: 'Test DAO',
+      chainIds: ['eip155:1'],
+      tokenIds: ['eip155:1/erc20:0x123'],
+      governorIds: ['eip155:1:0x456'],
+      metadata: {
+        description: 'Test Description',
+        icon: 'https://icon.com',
+        websiteUrl: 'https://test.com',
+        discord: 'discord.gg/test',
+        twitter: '@test',
+        socials: {
+          website: 'https://test.com',
+          discord: 'discord.gg/test',
+          twitter: '@test',
+          telegram: null,
+          discourse: null,
+          others: null
+        },
+        karmaName: null
+      },
+      features: [],
+      hasActiveProposals: false,
+      proposalsCount: 0,
+      delegatesCount: 0,
+      tokenOwnersCount: 0,
+      stats: {
+        proposalsCount: 0,
+        activeProposalsCount: 0,
+        tokenHoldersCount: 0,
+        votersCount: 0,
+        delegatesCount: 0,
+        delegatedVotesCount: '0'
+      }
+    };
+
+    test('should fetch a specific DAO by slug', async () => {
+      mockClient.mockRequest.mockImplementation(() => Promise.resolve({
+        organization: mockOrganization
+      }));
+
+      const result = await service.getDAO('test-dao');
+      expect(result).toEqual(mockOrganization);
+      expect(mockClient.mockRequest).toHaveBeenCalledWith(
+        TallyService.GET_DAO_QUERY,
+        {
+          input: { slug: 'test-dao' }
+        }
+      );
+    });
+
+    test('should throw error when DAO is not found', async () => {
+      mockClient.mockRequest.mockImplementation(() => Promise.resolve({
+        organizations: {
+          nodes: []
+        }
+      }));
+
+      await expect(service.getDAO('non-existent')).rejects.toThrow('DAO not found: non-existent');
+    });
+
+    test('should handle API errors', async () => {
+      const errorMessage = 'API Error';
+      mockClient.mockRequest.mockImplementation(() => Promise.reject(new Error(errorMessage)));
+
+      await expect(service.getDAO('test-dao')).rejects.toThrow(`Failed to fetch DAO: ${errorMessage}`);
+    });
+
+    test('should format DAO details correctly', () => {
+      const formatted = TallyService.formatDAO(mockOrganization);
+      
+      expect(formatted).toContain('Test DAO (test-dao)');
+      expect(formatted).toContain('Token Holders: 0');
+      expect(formatted).toContain('Delegates: 0');
+      expect(formatted).toContain('Proposals: 0');
+      expect(formatted).toContain('Active Proposals: No');
+      expect(formatted).toContain('Description: Test Description');
+      expect(formatted).toContain('Website: https://test.com');
+      expect(formatted).toContain('Twitter: @test');
+      expect(formatted).toContain('Discord: discord.gg/test');
+      expect(formatted).toContain('Chain IDs: eip155:1');
+      expect(formatted).toContain('Token IDs: eip155:1/erc20:0x123');
+      expect(formatted).toContain('Governor IDs: eip155:1:0x456');
+    });
+
+    test('should handle missing optional fields in formatting', () => {
+      const minimalDao: Organization = {
+        id: '1',
+        slug: 'minimal-dao',
+        name: 'Minimal DAO',
+        chainIds: ['eip155:1'],
+        hasActiveProposals: false,
+        proposalsCount: 0,
+        delegatesCount: 0,
+        tokenOwnersCount: 0
+      };
+
+      const formatted = TallyService.formatDAO(minimalDao);
+      
+      expect(formatted).toContain('Minimal DAO (minimal-dao)');
+      expect(formatted).toContain('Description: No description available');
+      expect(formatted).toContain('Website: N/A');
+      expect(formatted).toContain('Twitter: N/A');
+      expect(formatted).toContain('Discord: N/A');
+      expect(formatted).toContain('GitHub: N/A');
+      expect(formatted).toContain('Token IDs: N/A');
+      expect(formatted).toContain('Governor IDs: N/A');
     });
   });
 }); 
