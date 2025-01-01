@@ -106,6 +106,53 @@ export class TallyServer {
             },
           },
         },
+        {
+          name: "get-delegators",
+          description: "Get list of delegators for a specific address",
+          inputSchema: {
+            type: "object",
+            required: ["address"],
+            properties: {
+              address: {
+                type: "string",
+                description: "The Ethereum address to get delegators for (0x format)",
+              },
+              organizationId: {
+                type: "string",
+                description: "Filter by specific organization ID",
+              },
+              organizationSlug: {
+                type: "string",
+                description: "Filter by organization slug (e.g., 'uniswap'). Alternative to organizationId",
+              },
+              governorId: {
+                type: "string",
+                description: "Filter by specific governor ID",
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of delegators to return (default: 20, max: 50)",
+              },
+              afterCursor: {
+                type: "string",
+                description: "Cursor for pagination",
+              },
+              beforeCursor: {
+                type: "string",
+                description: "Cursor for previous page pagination",
+              },
+              sortBy: {
+                type: "string",
+                enum: ["id", "votes"],
+                description: "How to sort the delegators (default: id)",
+              },
+              isDescending: {
+                type: "boolean",
+                description: "Sort in descending order (default: true)",
+              },
+            },
+          },
+        },
       ];
 
       return { tools };
@@ -185,6 +232,37 @@ export class TallyServer {
           return { content };
         } catch (error) {
           throw new Error(`Error fetching delegates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "get-delegators") {
+        try {
+          if (typeof args.address !== 'string') {
+            throw new Error('address must be a string');
+          }
+
+          const data = await this.service.getDelegators({
+            address: args.address,
+            organizationId: typeof args.organizationId === 'string' ? args.organizationId : undefined,
+            organizationSlug: typeof args.organizationSlug === 'string' ? args.organizationSlug : undefined,
+            governorId: typeof args.governorId === 'string' ? args.governorId : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
+            beforeCursor: typeof args.beforeCursor === 'string' ? args.beforeCursor : undefined,
+            sortBy: typeof args.sortBy === 'string' ? args.sortBy as 'id' | 'votes' : undefined,
+            isDescending: typeof args.isDescending === 'boolean' ? args.isDescending : undefined,
+          });
+
+          const content: TextContent[] = [
+            {
+              type: "text",
+              text: TallyService.formatDelegatorsList(data.delegators)
+            }
+          ];
+
+          return { content };
+        } catch (error) {
+          throw new Error(`Error fetching delegators: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 

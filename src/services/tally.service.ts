@@ -39,7 +39,6 @@ export interface ListDAOsParams {
   afterCursor?: string;
   beforeCursor?: string;
   sortBy?: OrganizationsSortBy;
-  slug?: string;
 }
 
 export interface Organization {
@@ -127,6 +126,45 @@ interface GetDAOResponse {
   organizations: {
     nodes: Organization[];
   };
+}
+
+interface Delegation {
+  chainId: string;
+  blockNumber: number;
+  blockTimestamp: string;
+  votes: string;
+  delegator: {
+    address: string;
+    name?: string;
+    picture?: string;
+    twitter?: string;
+    ens?: string;
+  };
+  token?: {
+    id: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+}
+
+interface DelegationsResponse {
+  delegators: {
+    nodes: Delegation[];
+    pageInfo: PageInfo;
+  };
+}
+
+export interface GetDelegatorsParams {
+  address: string;
+  organizationId?: string;
+  organizationSlug?: string;
+  governorId?: string;
+  limit?: number;
+  afterCursor?: string;
+  beforeCursor?: string;
+  sortBy?: 'id' | 'votes';
+  isDescending?: boolean;
 }
 
 export class TallyService {
@@ -221,6 +259,38 @@ export class TallyService {
     }
   `;
 
+  private static readonly GET_DELEGATORS_QUERY = gql`
+    query GetDelegators($input: DelegationsInput!) {
+      delegators(input: $input) {
+        nodes {
+          ... on Delegation {
+            chainId
+            delegator {
+              address
+              name
+              picture
+              twitter
+              ens
+            }
+            blockNumber
+            blockTimestamp
+            votes
+            token {
+              id
+              name
+              symbol
+              decimals
+            }
+          }
+        }
+        pageInfo {
+          firstCursor
+          lastCursor
+        }
+      }
+    }
+  `;
+
   constructor(private config: TallyServiceConfig) {
     this.client = new GraphQLClient(config.baseUrl || TallyService.DEFAULT_BASE_URL, {
       headers: {
@@ -252,13 +322,6 @@ export class TallyService {
 
     if (params.beforeCursor) {
       input.page!.beforeCursor = params.beforeCursor;
-    }
-
-    if (params.slug) {
-      input.filters = {
-        ...input.filters,
-        slug: params.slug
-      };
     }
 
     try {
@@ -419,7 +482,61 @@ export class TallyService {
           },
         },
       },
+    },
+    {
+      name: "get-delegators",
+      description: "Get list of delegators for a specific address",
+      parameters: {
+        type: "object",
+        required: ["address"],
+        properties: {
+          address: {
+            type: "string",
+            description: "The Ethereum address to get delegators for (0x format)",
+          },
+          organizationId: {
+            type: "string",
+            description: "Filter by specific organization ID",
+          },
+          governorId: {
+            type: "string",
+            description: "Filter by specific governor ID",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of delegators to return (default: 20, max: 50)",
+          },
+          afterCursor: {
+            type: "string",
+            description: "Cursor for pagination",
+          },
+          beforeCursor: {
+            type: "string",
+            description: "Cursor for previous page pagination",
+          },
+          sortBy: {
+            type: "string",
+            enum: ["id", "votes"],
+            description: "How to sort the delegators (default: id)",
+          },
+          isDescending: {
+            type: "boolean",
+            description: "Sort in descending order (default: true)",
+          },
+        },
+      },
     }];
+  }
+
+  /**
+   * Helper function to get organization ID from slug
+   * @param {string} slug - The organization's slug
+   * @returns {Promise<string>} The organization's ID
+   * @throws {Error} When the API request fails or organization is not found
+   */
+  private async getOrganizationIdFromSlug(slug: string): Promise<string> {
+    const dao = await this.getDAO(slug);
+    return dao.id;
   }
 
   /**
@@ -451,8 +568,7 @@ export class TallyService {
 
     // If organizationId is not provided but slug is, get the DAO first
     if (!organizationId && input.organizationSlug) {
-      const dao = await this.getDAO(input.organizationSlug);
-      organizationId = dao.id;
+      organizationId = await this.getOrganizationIdFromSlug(input.organizationSlug);
     }
 
     if (!organizationId) {
@@ -503,6 +619,78 @@ export class TallyService {
         `Delegators: ${delegate.delegatorsCount}\n` +
         `Bio: ${delegate.account.bio || 'No bio available'}\n` +
         `Statement: ${delegate.statement?.statementSummary || 'No statement available'}\n` +
+        '---'
+      ).join('\n\n');
+  }
+
+  /**
+   * Get delegators for a specific address
+   * @param {GetDelegatorsParams} params - Parameters for getting delegators
+   * @returns {Promise<{ delegators: Delegation[], pageInfo: PageInfo }>} List of delegators and pagination info
+   * @throws {Error} When the API request fails
+   */
+  async getDelegators(params: GetDelegatorsParams): Promise<{
+    delegators: Delegation[];
+    pageInfo: PageInfo;
+  }> {
+    try {
+      let organizationId = params.organizationId;
+
+      // If organizationId is not provided but slug is, get the organization ID
+      if (!organizationId && params.organizationSlug) {
+        organizationId = await this.getOrganizationIdFromSlug(params.organizationSlug);
+      }
+
+      if (!organizationId && !params.governorId) {
+        throw new Error('Either organizationId/organizationSlug or governorId must be provided');
+      }
+
+      const input = {
+        filters: {
+          address: params.address,
+          ...(organizationId && { organizationId }),
+          ...(params.governorId && { governorId: params.governorId })
+        },
+        page: {
+          limit: Math.min(params.limit || 20, 50),
+          ...(params.afterCursor && { afterCursor: params.afterCursor }),
+          ...(params.beforeCursor && { beforeCursor: params.beforeCursor })
+        },
+        ...(params.sortBy && {
+          sort: {
+            sortBy: params.sortBy,
+            isDescending: params.isDescending ?? true
+          }
+        })
+      };
+
+      const response = await this.client.request<DelegationsResponse>(
+        TallyService.GET_DELEGATORS_QUERY,
+        { input }
+      );
+
+      return {
+        delegators: response.delegators.nodes,
+        pageInfo: response.delegators.pageInfo
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch delegators: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Format a list of delegators into a human-readable string
+   * @param {Delegation[]} delegators - List of delegators to format
+   * @returns {string} Formatted string representation
+   */
+  static formatDelegatorsList(delegators: Delegation[]): string {
+    return `Found ${delegators.length} delegators:\n\n` +
+      delegators.map(delegation =>
+        `${delegation.delegator.name || delegation.delegator.ens || delegation.delegator.address}\n` +
+        `Address: ${delegation.delegator.address}\n` +
+        `Votes: ${delegation.votes}\n` +
+        `Delegated at: Block ${delegation.blockNumber} (${new Date(delegation.blockTimestamp).toLocaleString()})\n` +
+        `${delegation.token ? `Token: ${delegation.token.symbol} (${delegation.token.name})\n` : ''}` +
         '---'
       ).join('\n\n');
   }
