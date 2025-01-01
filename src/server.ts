@@ -162,16 +162,18 @@ export class TallyServer {
             throw new Error('organizationIdOrSlug must be a string');
           }
 
-          const data = await this.service.listDelegates(
-            args.organizationIdOrSlug,
-            {
-              limit: typeof args.limit === 'number' ? args.limit : undefined,
-              afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
-              hasVotes: typeof args.hasVotes === 'boolean' ? args.hasVotes : undefined,
-              hasDelegators: typeof args.hasDelegators === 'boolean' ? args.hasDelegators : undefined,
-              isSeekingDelegation: typeof args.isSeekingDelegation === 'boolean' ? args.isSeekingDelegation : undefined,
-            }
-          );
+          // Determine if the input is an ID or slug
+          // If it contains 'eip155' or is numeric, treat as ID, otherwise as slug
+          const isId = args.organizationIdOrSlug.includes('eip155') || /^\d+$/.test(args.organizationIdOrSlug);
+          
+          const data = await this.service.listDelegates({
+            ...(isId ? { organizationId: args.organizationIdOrSlug } : { organizationSlug: args.organizationIdOrSlug }),
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
+            hasVotes: typeof args.hasVotes === 'boolean' ? args.hasVotes : undefined,
+            hasDelegators: typeof args.hasDelegators === 'boolean' ? args.hasDelegators : undefined,
+            isSeekingDelegation: typeof args.isSeekingDelegation === 'boolean' ? args.isSeekingDelegation : undefined,
+          });
 
           const content: TextContent[] = [
             {
