@@ -1,7 +1,10 @@
-export const LIST_DELEGATES_QUERY = `
-  query Delegates($input: DelegatesInput!) {
-    delegates(input: $input) {
-      nodes {
+import { gql } from 'graphql-request';
+
+export const LIST_DELEGATES_QUERY = gql`
+query Delegates($input: DelegatesInput!) {
+  delegates(input: $input) {
+    nodes {
+      ... on Delegate {
         id
         account {
           address
@@ -15,10 +18,11 @@ export const LIST_DELEGATES_QUERY = `
           statementSummary
         }
       }
-      pageInfo {
-        firstCursor
-        lastCursor
-      }
+    }
+    pageInfo {
+      firstCursor
+      lastCursor
     }
   }
-`; 
+}
+`;

@@ -30,7 +30,11 @@ export interface ProposalDetailsVoteStats {
 
 export interface ProposalDetailsGovernor {
   id: AccountID;
+  chainId: string;
   name: string;
+  token: {
+    decimals: number;
+  };
   organization: {
     name: string;
     slug: string;
@@ -40,6 +44,19 @@ export interface ProposalDetailsGovernor {
 export interface ProposalDetailsProposer {
   address: AccountID;
   name: string;
+  picture?: string;
+}
+
+export interface TimeBlock {
+  timestamp: string;
+}
+
+export interface ExecutableCall {
+  value: string;
+  target: string;
+  calldata: string;
+  signature: string;
+  type: string;
 }
 
 export interface ProposalDetails {
@@ -48,6 +65,9 @@ export interface ProposalDetails {
   metadata: ProposalDetailsMetadata;
   status: "active" | "canceled" | "defeated" | "executed" | "expired" | "pending" | "queued" | "succeeded";
   quorum: string;
+  start: TimeBlock;
+  end: TimeBlock;
+  executableCalls: ExecutableCall[];
   voteStats: ProposalDetailsVoteStats[];
   governor: ProposalDetailsGovernor;
   proposer: ProposalDetailsProposer;

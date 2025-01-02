@@ -1,4 +1,4 @@
-import { PageInfo } from '../organizations/organizations.types.js';
+import { PageInfo } from "../organizations/organizations.types.js";
 
 // Input Types
 export interface GetDelegatorsParams {
@@ -9,7 +9,7 @@ export interface GetDelegatorsParams {
   limit?: number;
   afterCursor?: string;
   beforeCursor?: string;
-  sortBy?: 'id' | 'votes';
+  sortBy?: "id" | "votes";
   isDescending?: boolean;
 }
 
@@ -33,7 +33,12 @@ export interface Delegation {
     twitter?: string;
     ens?: string;
   };
-  token?: TokenInfo;
+  token?: {
+    id: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
 }
 
 export interface DelegationsResponse {
@@ -56,4 +61,4 @@ export interface GetDelegatorsResponse {
       };
     };
   }>;
-} 
+}

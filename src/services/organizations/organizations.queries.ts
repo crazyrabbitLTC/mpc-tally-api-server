@@ -1,4 +1,6 @@
-export const LIST_DAOS_QUERY = `
+import { gql } from 'graphql-request';
+
+export const LIST_DAOS_QUERY = gql`
   query Organizations($input: OrganizationsInput!) {
     organizations(input: $input) {
       nodes {
@@ -21,7 +23,7 @@ export const LIST_DAOS_QUERY = `
   }
 `;
 
-export const GET_DAO_QUERY = `
+export const GET_DAO_QUERY = gql`
   query OrganizationBySlug($input: OrganizationInput!) {
     organization(input: $input) {
       id

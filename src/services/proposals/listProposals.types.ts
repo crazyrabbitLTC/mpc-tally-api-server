@@ -36,15 +36,39 @@ export interface ProposalVoteStats {
 export interface ProposalMetadata {
   description: string;
   title: string;
+  discourseURL: string;
+  snapshotURL: string;
+}
+
+export interface TimeBlock {
+  timestamp: string;
+}
+
+export interface ExecutableCall {
+  value: string;
+  target: string;
+  calldata: string;
+  signature: string;
+  type: string;
 }
 
 export interface ProposalGovernor {
   id: AccountID;
+  chainId: string;
   name: string;
+  token: {
+    decimals: number;
+  };
   organization: {
     name: string;
     slug: string;
   };
+}
+
+export interface ProposalProposer {
+  address: AccountID;
+  name: string;
+  picture?: string;
 }
 
 export interface Proposal {
@@ -54,8 +78,12 @@ export interface Proposal {
   createdAt: string;
   quorum: string;
   metadata: ProposalMetadata;
+  start: TimeBlock;
+  end: TimeBlock;
+  executableCalls: ExecutableCall[];
   voteStats: ProposalVoteStats[];
   governor: ProposalGovernor;
+  proposer: ProposalProposer;
 }
 
 export interface ProposalsResponse {

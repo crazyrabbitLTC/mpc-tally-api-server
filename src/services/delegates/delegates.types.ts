@@ -4,12 +4,15 @@ import { PageInfo } from '../organizations/organizations.types.js';
 export interface ListDelegatesInput {
   organizationId?: string;
   organizationSlug?: string;
+  governorId?: string;
   limit?: number;
   afterCursor?: string;
   beforeCursor?: string;
   hasVotes?: boolean;
   hasDelegators?: boolean;
   isSeekingDelegation?: boolean;
+  sortBy?: 'id' | 'votes';
+  isDescending?: boolean;
 }
 
 // Response Types

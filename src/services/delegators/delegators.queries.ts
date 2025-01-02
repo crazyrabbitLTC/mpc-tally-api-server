@@ -1,29 +1,33 @@
-export const GET_DELEGATORS_QUERY = `
-  query Delegators($input: DelegatorsInput!) {
-    delegators(input: $input) {
-      nodes {
-        chainId
-        blockNumber
-        blockTimestamp
-        votes
-        delegator {
-          address
-          name
-          picture
-          twitter
-          ens
+import { gql } from 'graphql-request';
+
+export const GET_DELEGATORS_QUERY = gql`
+    query GetDelegators($input: DelegationsInput!) {
+      delegators(input: $input) {
+        nodes {
+          ... on Delegation {
+            chainId
+            delegator {
+              address
+              name
+              picture
+              twitter
+              ens
+            }
+            blockNumber
+            blockTimestamp
+            votes
+            token {
+              id
+              name
+              symbol
+              decimals
+            }
+          }
         }
-        token {
-          id
-          name
-          symbol
-          decimals
+        pageInfo {
+          firstCursor
+          lastCursor
         }
-      }
-      pageInfo {
-        firstCursor
-        lastCursor
       }
     }
-  }
-`; 
+  `;
