@@ -1,6 +1,6 @@
 {
   "name": "mpc-tally-api-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Model Context Protocol (MCP) server for interacting with the Tally API, enabling AI agents to access DAO governance data",
   "type": "module",
   "main": "build/index.js",
@@ -38,6 +38,7 @@
     "dotenv": "^16.4.7",
     "graphql": "^16.10.0",
     "graphql-request": "^7.1.2",
+    "mcp-test-client": "^1.0.1",
     "zod": "^3.0.0"
   },
   "devDependencies": {
