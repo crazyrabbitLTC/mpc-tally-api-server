@@ -1,182 +1,267 @@
-import { GraphQLClient, gql } from 'graphql-request';
+import { GraphQLClient } from 'graphql-request';
+import { listDAOs } from './organizations/listDAOs.js';
+import { getDAO } from './organizations/getDAO.js';
+import { listDelegates } from './delegates/listDelegates.js';
+import { getDelegators } from './delegators/getDelegators.js';
+import { listProposals } from './proposals/listProposals.js';
+import { getProposal } from './proposals/getProposal.js';
+import type { 
+  Organization,
+  OrganizationsResponse,
+  ListDAOsParams,
+} from './organizations/organizations.types.js';
+import type { Delegate } from './delegates/delegates.types.js';
+import type { Delegation, GetDelegatorsParams, TokenInfo } from './delegators/delegators.types.js';
+import type { PageInfo } from './organizations/organizations.types.js';
+import type { 
+  ProposalsInput,
+  ProposalsResponse,
+  ProposalInput,
+  ProposalDetailsResponse,
+} from './proposals/index.js';
 
 export interface TallyServiceConfig {
   apiKey: string;
   baseUrl?: string;
 }
 
-export type OrganizationsSortBy = "id" | "name" | "explore" | "popular";
-
-export interface OrganizationsSortInput {
-  isDescending: boolean;
-  sortBy: OrganizationsSortBy;
-}
-
-export interface PageInput {
-  afterCursor?: string;
-  beforeCursor?: string;
-  limit?: number;
-}
-
-export interface OrganizationsFiltersInput {
-  hasLogo?: boolean;
-  chainId?: string;
-  isMember?: boolean;
-  address?: string;
-  slug?: string;
-  name?: string;
-}
-
-export interface OrganizationsInput {
-  filters?: OrganizationsFiltersInput;
-  page?: PageInput;
-  sort?: OrganizationsSortInput;
-  search?: string;
-}
-
-export interface ListDAOsParams {
-  limit?: number;
-  afterCursor?: string;
-  beforeCursor?: string;
-  sortBy?: OrganizationsSortBy;
-}
-
-export interface Organization {
-  id: string;
-  slug: string;
+export interface OpenAIFunctionDefinition {
   name: string;
-  chainIds: string[];
-  tokenIds?: string[];
-  governorIds?: string[];
-  metadata?: {
-    description?: string;
-    icon?: string;
-    websiteUrl?: string;
-    twitter?: string;
-    discord?: string;
-    github?: string;
-    termsOfService?: string;
-    governanceUrl?: string;
-    socials?: {
-      website?: string;
-      discord?: string;
-      telegram?: string;
-      twitter?: string;
-      discourse?: string;
-      others?: Array<{
-        label: string;
-        value: string;
-      }>;
-    };
-    karmaName?: string;
-  };
-  features?: Array<{
-    name: string;
-    enabled: boolean;
-  }>;
-  hasActiveProposals: boolean;
-  proposalsCount: number;
-  delegatesCount: number;
-  tokenOwnersCount: number;
-  stats?: {
-    proposalsCount: number;
-    activeProposalsCount: number;
-    tokenHoldersCount: number;
-    votersCount: number;
-    delegatesCount: number;
-    delegatedVotesCount: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties?: Record<string, unknown>;
+    required?: string[];
+    oneOf?: Array<{
+      required: string[];
+      properties: Record<string, unknown>;
+    }>;
   };
 }
 
-export interface PageInfo {
-  firstCursor: string | null;
-  lastCursor: string | null;
-}
-
-export interface TokenInfo {
-  id: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-}
-
-interface Delegate {
-  id: string;
-  account: {
-    address: string;
-    bio?: string;
-    name?: string;
-    picture?: string | null;
-  };
-  votesCount: string;
-  delegatorsCount: number;
-  statement?: {
-    statementSummary?: string;
-  };
-}
-
-interface DelegatesResponse {
-  delegates: {
-    nodes: Delegate[];
-    pageInfo: PageInfo;
-  };
-}
-
-export interface OrganizationsResponse {
-  organizations: {
-    nodes: Organization[];
-    pageInfo: PageInfo;
-  };
-}
-
-interface GetDAOResponse {
-  organizations: {
-    nodes: Organization[];
-  };
-}
-
-interface Delegation {
-  chainId: string;
-  blockNumber: number;
-  blockTimestamp: string;
-  votes: string;
-  delegator: {
-    address: string;
-    name?: string;
-    picture?: string;
-    twitter?: string;
-    ens?: string;
-  };
-  token?: {
-    id: string;
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-}
-
-interface DelegationsResponse {
-  delegators: {
-    nodes: Delegation[];
-    pageInfo: PageInfo;
-  };
-}
-
-export interface GetDelegatorsParams {
-  address: string;
-  organizationId?: string;
-  organizationSlug?: string;
-  governorId?: string;
-  limit?: number;
-  afterCursor?: string;
-  beforeCursor?: string;
-  sortBy?: 'id' | 'votes';
-  isDescending?: boolean;
-}
+export const OPENAI_FUNCTION_DEFINITIONS: OpenAIFunctionDefinition[] = [
+  {
+    name: "list-daos",
+    description: "List DAOs on Tally sorted by specified criteria",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maximum number of DAOs to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination",
+        },
+        sortBy: {
+          type: "string",
+          enum: ["id", "name", "explore", "popular"],
+          description: "How to sort the DAOs (default: popular). 'explore' prioritizes DAOs with live proposals",
+        },
+      },
+    },
+  },
+  {
+    name: "get-dao",
+    description: "Get detailed information about a specific DAO",
+    parameters: {
+      type: "object",
+      required: ["slug"],
+      properties: {
+        slug: {
+          type: "string",
+          description: "The DAO's slug (e.g., 'uniswap' or 'aave')",
+        },
+      },
+    },
+  },
+  {
+    name: "list-delegates",
+    description: "List delegates for a specific organization with their metadata",
+    parameters: {
+      type: "object",
+      required: ["organizationIdOrSlug"],
+      properties: {
+        organizationIdOrSlug: {
+          type: "string",
+          description: "The organization's ID or slug (e.g., 'arbitrum' or 'eip155:1:123')",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of delegates to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination",
+        },
+        hasVotes: {
+          type: "boolean",
+          description: "Filter for delegates with votes",
+        },
+        hasDelegators: {
+          type: "boolean",
+          description: "Filter for delegates with delegators",
+        },
+        isSeekingDelegation: {
+          type: "boolean",
+          description: "Filter for delegates seeking delegation",
+        },
+      },
+    },
+  },
+  {
+    name: "get-delegators",
+    description: "Get list of delegators for a specific address",
+    parameters: {
+      type: "object",
+      required: ["address"],
+      properties: {
+        address: {
+          type: "string",
+          description: "The Ethereum address to get delegators for (0x format)",
+        },
+        organizationId: {
+          type: "string",
+          description: "Filter by specific organization ID",
+        },
+        governorId: {
+          type: "string",
+          description: "Filter by specific governor ID",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of delegators to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination",
+        },
+        beforeCursor: {
+          type: "string",
+          description: "Cursor for previous page pagination",
+        },
+        sortBy: {
+          type: "string",
+          enum: ["id", "votes"],
+          description: "How to sort the delegators (default: id)",
+        },
+        isDescending: {
+          type: "boolean",
+          description: "Sort in descending order (default: true)",
+        },
+      },
+    },
+  },
+  {
+    name: "list-proposals",
+    description: "List proposals for a specific organization or governor",
+    parameters: {
+      type: "object",
+      properties: {
+        organizationId: {
+          type: "string",
+          description: "Filter by organization ID (large integer as string)",
+        },
+        organizationSlug: {
+          type: "string",
+          description: "Filter by organization slug (e.g., 'uniswap'). Alternative to organizationId",
+        },
+        governorId: {
+          type: "string",
+          description: "Filter by governor ID",
+        },
+        includeArchived: {
+          type: "boolean",
+          description: "Include archived proposals",
+        },
+        isDraft: {
+          type: "boolean",
+          description: "Filter for draft proposals",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of proposals to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination (string ID)",
+        },
+        beforeCursor: {
+          type: "string",
+          description: "Cursor for previous page pagination (string ID)",
+        },
+        isDescending: {
+          type: "boolean",
+          description: "Sort in descending order (default: true)",
+        },
+      },
+    },
+  },
+  {
+    name: "get-proposal",
+    description: "Get detailed information about a specific proposal. You must provide either the Tally ID (globally unique) or both onchainId and governorId (unique within a governor).",
+    parameters: {
+      type: "object",
+      oneOf: [
+        {
+          required: ["id"],
+          properties: {
+            id: {
+              type: "string",
+              description: "The proposal's Tally ID (globally unique across all governors)",
+            },
+            includeArchived: {
+              type: "boolean",
+              description: "Include archived proposals",
+            },
+            isLatest: {
+              type: "boolean",
+              description: "Get the latest version of the proposal",
+            },
+          },
+        },
+        {
+          required: ["onchainId", "governorId"],
+          properties: {
+            onchainId: {
+              type: "string",
+              description: "The proposal's onchain ID (only unique within a governor)",
+            },
+            governorId: {
+              type: "string",
+              description: "The governor's ID (required when using onchainId)",
+            },
+            includeArchived: {
+              type: "boolean",
+              description: "Include archived proposals",
+            },
+            isLatest: {
+              type: "boolean",
+              description: "Get the latest version of the proposal",
+            },
+          },
+        },
+      ],
+    },
+  },
+];
 
 export class TallyService {
   private client: GraphQLClient;
   private static readonly DEFAULT_BASE_URL = 'https://api.tally.xyz/query';
+
+  constructor(private config: TallyServiceConfig) {
+    this.client = new GraphQLClient(config.baseUrl || TallyService.DEFAULT_BASE_URL, {
+      headers: {
+        'Api-Key': config.apiKey,
+      },
+    });
+  }
+
+  static getOpenAIFunctionDefinitions(): OpenAIFunctionDefinition[] {
+    return OPENAI_FUNCTION_DEFINITIONS;
+  }
 
   /**
    * Format a vote amount considering token decimals
@@ -192,204 +277,46 @@ export class TallyService {
     return `${formatted}${token?.symbol ? ` ${token.symbol}` : ''}`;
   }
 
-  // GraphQL Queries
-  private static readonly LIST_DAOS_QUERY = gql`
-    query Organizations($input: OrganizationsInput!) {
-      organizations(input: $input) {
-        nodes {
-          ... on Organization {
-            id
-            name
-            slug
-            chainIds
-            proposalsCount
-            hasActiveProposals
-            tokenOwnersCount
-            delegatesCount
-          }
-        }
-        pageInfo {
-          firstCursor
-          lastCursor
-        }
-      }
-    }
-  `;
-
-  private static readonly GET_DAO_QUERY = gql`
-    query OrganizationBySlug($input: OrganizationInput!) {
-      organization(input: $input) {
-        id
-        name
-        slug
-        chainIds
-        governorIds
-        tokenIds
-        hasActiveProposals
-        proposalsCount
-        delegatesCount
-        tokenOwnersCount
-        metadata {
-          description
-          icon
-          socials {
-            website
-            discord
-            telegram
-            twitter
-            discourse
-            others {
-              label
-              value
-            }
-          }
-          karmaName
-        }
-        features {
-          name
-          enabled
-        }
-      }
-    }
-  `;
-
-  private static readonly LIST_DELEGATES_QUERY = gql`
-    query Delegates($input: DelegatesInput!) {
-      delegates(input: $input) {
-        nodes {
-          ... on Delegate {
-            id
-            account {
-              address
-              bio
-              name
-              picture
-            }
-            votesCount
-            delegatorsCount
-            statement {
-              statementSummary
-            }
-          }
-        }
-        pageInfo {
-          firstCursor
-          lastCursor
-        }
-      }
-    }
-  `;
-
-  private static readonly GET_DELEGATORS_QUERY = gql`
-    query GetDelegators($input: DelegationsInput!) {
-      delegators(input: $input) {
-        nodes {
-          ... on Delegation {
-            chainId
-            delegator {
-              address
-              name
-              picture
-              twitter
-              ens
-            }
-            blockNumber
-            blockTimestamp
-            votes
-            token {
-              id
-              name
-              symbol
-              decimals
-            }
-          }
-        }
-        pageInfo {
-          firstCursor
-          lastCursor
-        }
-      }
-    }
-  `;
-
-  constructor(private config: TallyServiceConfig) {
-    this.client = new GraphQLClient(config.baseUrl || TallyService.DEFAULT_BASE_URL, {
-      headers: {
-        'Api-Key': config.apiKey,
-      },
-    });
-  }
-
-  /**
-   * List DAOs sorted by specified criteria
-   * @param {ListDAOsParams} params - Parameters for listing DAOs
-   * @returns {Promise<OrganizationsResponse>} List of DAOs and pagination info
-   * @throws {Error} When the API request fails
-   */
   async listDAOs(params: ListDAOsParams = {}): Promise<OrganizationsResponse> {
-    const input: OrganizationsInput = {
-      sort: {
-        sortBy: params.sortBy || "popular",
-        isDescending: true
-      },
-      page: {
-        limit: Math.min(params.limit || 20, 50)
-      }
-    };
-
-    if (params.afterCursor) {
-      input.page!.afterCursor = params.afterCursor;
-    }
-
-    if (params.beforeCursor) {
-      input.page!.beforeCursor = params.beforeCursor;
-    }
-
-    try {
-      const response = await this.client.request<OrganizationsResponse>(TallyService.LIST_DAOS_QUERY, { input });
-      return response;
-    } catch (error) {
-      throw new Error(`Failed to fetch DAOs: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    return listDAOs(this.client, params);
   }
 
-  /**
-   * Get a specific DAO by its slug
-   * @param {string} slug - The DAO's slug (e.g., "uniswap" or "aave")
-   * @returns {Promise<Organization>} The DAO's details
-   * @throws {Error} When the API request fails or DAO is not found
-   */
   async getDAO(slug: string): Promise<Organization> {
-    try {
-      const input = { slug };
-      const response = await this.client.request<{ organization: Organization }>(TallyService.GET_DAO_QUERY, { input });
-      
-      if (!response.organization) {
-        throw new Error(`DAO not found: ${slug}`);
-      }
-      
-      // Map the response to match our Organization interface
-      const dao: Organization = {
-        ...response.organization,
-        metadata: {
-          ...response.organization.metadata,
-          websiteUrl: response.organization.metadata?.socials?.website || undefined,
-          discord: response.organization.metadata?.socials?.discord || undefined,
-          twitter: response.organization.metadata?.socials?.twitter || undefined,
-        }
-      };
-      
-      return dao;
-    } catch (error) {
-      throw new Error(`Failed to fetch DAO: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    return getDAO(this.client, slug);
   }
 
-  /**
-   * Format a list of DAOs into a human-readable string
-   * @param {Organization[]} daos - List of DAOs to format
-   * @returns {string} Formatted string representation
-   */
+  public async listDelegates(input: {
+    organizationId?: string;
+    organizationSlug?: string;
+    limit?: number;
+    afterCursor?: string;
+    beforeCursor?: string;
+    hasVotes?: boolean;
+    hasDelegators?: boolean;
+    isSeekingDelegation?: boolean;
+  }): Promise<{
+    delegates: Delegate[];
+    pageInfo: PageInfo;
+  }> {
+    return listDelegates(this.client, input);
+  }
+
+  async getDelegators(params: GetDelegatorsParams): Promise<{
+    delegators: Delegation[];
+    pageInfo: PageInfo;
+  }> {
+    return getDelegators(this.client, params);
+  }
+
+  async listProposals(input: ProposalsInput & { organizationSlug?: string }): Promise<ProposalsResponse> {
+    return listProposals(this.client, input);
+  }
+
+  async getProposal(input: ProposalInput & { organizationSlug?: string }): Promise<ProposalDetailsResponse> {
+    return getProposal(this.client, input);
+  }
+
+  // Keep the formatting utility functions in the service
   static formatDAOList(daos: Organization[]): string {
     return `Found ${daos.length} DAOs:\n\n` + 
       daos.map(dao => 
@@ -408,11 +335,6 @@ export class TallyService {
       ).join('\n\n');
   }
 
-  /**
-   * Format a single DAO's details into a human-readable string
-   * @param {Organization} dao - The DAO to format
-   * @returns {string} Formatted string representation
-   */
   static formatDAO(dao: Organization): string {
     return `${dao.name} (${dao.slug})\n` +
       `Token Holders: ${dao.tokenOwnersCount}\n` +
@@ -430,207 +352,6 @@ export class TallyService {
       `Governor IDs: ${dao.governorIds?.join(', ') || 'N/A'}`;
   }
 
-  /**
-   * Get OpenAI function definitions for the service
-   */
-  static getOpenAIFunctionDefinitions() {
-    return [{
-      name: "list-daos",
-      description: "List DAOs on Tally sorted by specified criteria",
-      parameters: {
-        type: "object",
-        properties: {
-          limit: {
-            type: "number",
-            description: "Maximum number of DAOs to return (default: 20, max: 50)",
-          },
-          afterCursor: {
-            type: "string",
-            description: "Cursor for pagination",
-          },
-          sortBy: {
-            type: "string",
-            enum: ["id", "name", "explore", "popular"],
-            description: "How to sort the DAOs (default: popular). 'explore' prioritizes DAOs with live proposals",
-          },
-        },
-      },
-    },
-    {
-      name: "get-dao",
-      description: "Get detailed information about a specific DAO",
-      parameters: {
-        type: "object",
-        required: ["slug"],
-        properties: {
-          slug: {
-            type: "string",
-            description: "The DAO's slug (e.g., 'uniswap' or 'aave')",
-          },
-        },
-      },
-    },
-    {
-      name: "list-delegates",
-      description: "List delegates for a specific organization with their metadata",
-      parameters: {
-        type: "object",
-        required: ["organizationIdOrSlug"],
-        properties: {
-          organizationIdOrSlug: {
-            type: "string",
-            description: "The organization's ID or slug (e.g., 'arbitrum' or 'eip155:1:123')",
-          },
-          limit: {
-            type: "number",
-            description: "Maximum number of delegates to return (default: 20, max: 50)",
-          },
-          afterCursor: {
-            type: "string",
-            description: "Cursor for pagination",
-          },
-          hasVotes: {
-            type: "boolean",
-            description: "Filter for delegates with votes",
-          },
-          hasDelegators: {
-            type: "boolean",
-            description: "Filter for delegates with delegators",
-          },
-          isSeekingDelegation: {
-            type: "boolean",
-            description: "Filter for delegates seeking delegation",
-          },
-        },
-      },
-    },
-    {
-      name: "get-delegators",
-      description: "Get list of delegators for a specific address",
-      parameters: {
-        type: "object",
-        required: ["address"],
-        properties: {
-          address: {
-            type: "string",
-            description: "The Ethereum address to get delegators for (0x format)",
-          },
-          organizationId: {
-            type: "string",
-            description: "Filter by specific organization ID",
-          },
-          governorId: {
-            type: "string",
-            description: "Filter by specific governor ID",
-          },
-          limit: {
-            type: "number",
-            description: "Maximum number of delegators to return (default: 20, max: 50)",
-          },
-          afterCursor: {
-            type: "string",
-            description: "Cursor for pagination",
-          },
-          beforeCursor: {
-            type: "string",
-            description: "Cursor for previous page pagination",
-          },
-          sortBy: {
-            type: "string",
-            enum: ["id", "votes"],
-            description: "How to sort the delegators (default: id)",
-          },
-          isDescending: {
-            type: "boolean",
-            description: "Sort in descending order (default: true)",
-          },
-        },
-      },
-    }];
-  }
-
-  /**
-   * Helper function to get organization ID from slug
-   * @param {string} slug - The organization's slug
-   * @returns {Promise<string>} The organization's ID
-   * @throws {Error} When the API request fails or organization is not found
-   */
-  private async getOrganizationIdFromSlug(slug: string): Promise<string> {
-    const dao = await this.getDAO(slug);
-    return dao.id;
-  }
-
-  /**
-   * List delegates for an organization with their metadata
-   * @param {string} organizationIdOrSlug - The organization's ID or slug
-   * @param {Object} options - Additional options for filtering and sorting
-   * @param {number} options.limit - Maximum number of delegates to return (default: 20, max: 50)
-   * @param {string} options.afterCursor - Cursor for pagination
-   * @param {boolean} options.hasVotes - Filter for delegates with votes
-   * @param {boolean} options.hasDelegators - Filter for delegates with delegators
-   * @param {boolean} options.isSeekingDelegation - Filter for delegates seeking delegation
-   * @returns {Promise<{ delegates: Array<Delegate>, pageInfo: PageInfo }>} List of delegates and pagination info
-   * @throws {Error} When the API request fails
-   */
-  public async listDelegates(input: {
-    organizationId?: string;
-    organizationSlug?: string;
-    limit?: number;
-    afterCursor?: string;
-    beforeCursor?: string;
-    hasVotes?: boolean;
-    hasDelegators?: boolean;
-    isSeekingDelegation?: boolean;
-  }): Promise<{
-    delegates: Delegate[];
-    pageInfo: PageInfo;
-  }> {
-    let organizationId = input.organizationId;
-
-    // If organizationId is not provided but slug is, get the DAO first
-    if (!organizationId && input.organizationSlug) {
-      organizationId = await this.getOrganizationIdFromSlug(input.organizationSlug);
-    }
-
-    if (!organizationId) {
-      throw new Error('Either organizationId or organizationSlug must be provided');
-    }
-
-    try {
-      const response = await this.client.request<DelegatesResponse>(TallyService.LIST_DELEGATES_QUERY, {
-        input: {
-          filters: {
-            organizationId,
-            hasVotes: input.hasVotes,
-            hasDelegators: input.hasDelegators,
-            isSeekingDelegation: input.isSeekingDelegation,
-          },
-          sort: {
-            isDescending: true,
-            sortBy: 'votes',
-          },
-          page: {
-            limit: Math.min(input.limit || 20, 50),
-            afterCursor: input.afterCursor,
-            beforeCursor: input.beforeCursor,
-          },
-        },
-      });
-
-      return {
-        delegates: response.delegates.nodes,
-        pageInfo: response.delegates.pageInfo,
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch delegates: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Format a list of delegates into a human-readable string
-   * @param {Array<Delegate>} delegates - List of delegates to format
-   * @returns {string} Formatted string representation
-   */
   static formatDelegatesList(delegates: Delegate[]): string {
     return `Found ${delegates.length} delegates:\n\n` +
       delegates.map(delegate =>
@@ -644,66 +365,6 @@ export class TallyService {
       ).join('\n\n');
   }
 
-  /**
-   * Get delegators for a specific address
-   * @param {GetDelegatorsParams} params - Parameters for getting delegators
-   * @returns {Promise<{ delegators: Delegation[], pageInfo: PageInfo }>} List of delegators and pagination info
-   * @throws {Error} When the API request fails
-   */
-  async getDelegators(params: GetDelegatorsParams): Promise<{
-    delegators: Delegation[];
-    pageInfo: PageInfo;
-  }> {
-    try {
-      let organizationId = params.organizationId;
-
-      // If organizationId is not provided but slug is, get the organization ID
-      if (!organizationId && params.organizationSlug) {
-        organizationId = await this.getOrganizationIdFromSlug(params.organizationSlug);
-      }
-
-      if (!organizationId && !params.governorId) {
-        throw new Error('Either organizationId/organizationSlug or governorId must be provided');
-      }
-
-      const input = {
-        filters: {
-          address: params.address,
-          ...(organizationId && { organizationId }),
-          ...(params.governorId && { governorId: params.governorId })
-        },
-        page: {
-          limit: Math.min(params.limit || 20, 50),
-          ...(params.afterCursor && { afterCursor: params.afterCursor }),
-          ...(params.beforeCursor && { beforeCursor: params.beforeCursor })
-        },
-        ...(params.sortBy && {
-          sort: {
-            sortBy: params.sortBy,
-            isDescending: params.isDescending ?? true
-          }
-        })
-      };
-
-      const response = await this.client.request<DelegationsResponse>(
-        TallyService.GET_DELEGATORS_QUERY,
-        { input }
-      );
-
-      return {
-        delegators: response.delegators.nodes,
-        pageInfo: response.delegators.pageInfo
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch delegators: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Format a list of delegators into a human-readable string
-   * @param {Delegation[]} delegators - List of delegators to format
-   * @returns {string} Formatted string representation
-   */
   static formatDelegatorsList(delegators: Delegation[]): string {
     return `Found ${delegators.length} delegators:\n\n` +
       delegators.map(delegation =>
@@ -714,5 +375,42 @@ export class TallyService {
         `${delegation.token ? `Token: ${delegation.token.symbol} (${delegation.token.name})\n` : ''}` +
         '---'
       ).join('\n\n');
+  }
+
+  static formatProposalsList(proposals: ProposalsResponse['proposals']['nodes']): string {
+    return `Found ${proposals.length} proposals:\n\n` +
+      proposals.map(proposal =>
+        `${proposal.metadata.title}\n` +
+        `Tally ID: ${proposal.id}\n` +
+        `Onchain ID: ${proposal.onchainId}\n` +
+        `Status: ${proposal.status}\n` +
+        `Created: ${new Date(proposal.createdAt).toLocaleString()}\n` +
+        `Quorum: ${proposal.quorum}\n` +
+        `Organization: ${proposal.governor.organization.name} (${proposal.governor.organization.slug})\n` +
+        `Governor: ${proposal.governor.name}\n` +
+        `Vote Stats:\n${proposal.voteStats.map(stat =>
+          `  ${stat.type}: ${stat.percent.toFixed(2)}% (${stat.votesCount} votes from ${stat.votersCount} voters)`
+        ).join('\n')}\n` +
+        `Description: ${proposal.metadata.description.slice(0, 200)}${proposal.metadata.description.length > 200 ? '...' : ''}\n` +
+        '---'
+      ).join('\n\n');
+  }
+
+  static formatProposal(proposal: ProposalDetailsResponse['proposal']): string {
+    return `${proposal.metadata.title}\n` +
+      `Tally ID: ${proposal.id}\n` +
+      `Onchain ID: ${proposal.onchainId}\n` +
+      `Status: ${proposal.status}\n` +
+      `Quorum: ${proposal.quorum}\n` +
+      `Organization: ${proposal.governor.organization.name} (${proposal.governor.organization.slug})\n` +
+      `Governor: ${proposal.governor.name}\n` +
+      `Proposer: ${proposal.proposer.name || proposal.proposer.address}\n` +
+      `Vote Stats:\n${proposal.voteStats.map(stat =>
+        `  ${stat.type}: ${stat.percent.toFixed(2)}% (${stat.votesCount} votes from ${stat.votersCount} voters)`
+      ).join('\n')}\n` +
+      `Description:\n${proposal.metadata.description}\n` +
+      `Links:\n` +
+      `  Discourse: ${proposal.metadata.discourseURL || 'N/A'}\n` +
+      `  Snapshot: ${proposal.metadata.snapshotURL || 'N/A'}`;
   }
 } 

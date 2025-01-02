@@ -6,7 +6,8 @@ import {
   type Tool,
   type TextContent
 } from "@modelcontextprotocol/sdk/types.js";
-import { TallyService, type OrganizationsSortBy } from './services/tally.service.js';
+import { TallyService } from './services/tally.service.js';
+import type { OrganizationsSortBy } from './services/organizations/organizations.types.js';
 
 export class TallyServer {
   private server: Server;
@@ -153,6 +154,98 @@ export class TallyServer {
             },
           },
         },
+        {
+          name: "list-proposals",
+          description: "List proposals for a specific organization or governor",
+          inputSchema: {
+            type: "object",
+            properties: {
+              organizationId: {
+                type: "string",
+                description: "Filter by organization ID (large integer as string)"
+              },
+              organizationSlug: {
+                type: "string",
+                description: "Filter by organization slug (e.g., 'uniswap'). Alternative to organizationId"
+              },
+              governorId: {
+                type: "string",
+                description: "Filter by governor ID"
+              },
+              includeArchived: {
+                type: "boolean",
+                description: "Include archived proposals"
+              },
+              isDraft: {
+                type: "boolean",
+                description: "Filter for draft proposals"
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of proposals to return (default: 20, max: 50)"
+              },
+              afterCursor: {
+                type: "string",
+                description: "Cursor for pagination (string ID)"
+              },
+              beforeCursor: {
+                type: "string",
+                description: "Cursor for previous page pagination (string ID)"
+              },
+              isDescending: {
+                type: "boolean",
+                description: "Sort in descending order (default: true)"
+              },
+            },
+          },
+        },
+        {
+          name: "get-proposal",
+          description: "Get detailed information about a specific proposal. You must provide either the Tally ID (globally unique) or both onchainId and governorId (unique within a governor).",
+          inputSchema: {
+            type: "object",
+            oneOf: [
+              {
+                required: ["id"],
+                properties: {
+                  id: {
+                    type: "string",
+                    description: "The proposal's Tally ID (globally unique across all governors)"
+                  },
+                  includeArchived: {
+                    type: "boolean",
+                    description: "Include archived proposals"
+                  },
+                  isLatest: {
+                    type: "boolean",
+                    description: "Get the latest version of the proposal"
+                  }
+                }
+              },
+              {
+                required: ["onchainId", "governorId"],
+                properties: {
+                  onchainId: {
+                    type: "string",
+                    description: "The proposal's onchain ID (only unique within a governor)"
+                  },
+                  governorId: {
+                    type: "string",
+                    description: "The governor's ID (required when using onchainId)"
+                  },
+                  includeArchived: {
+                    type: "boolean",
+                    description: "Include archived proposals"
+                  },
+                  isLatest: {
+                    type: "boolean",
+                    description: "Get the latest version of the proposal"
+                  }
+                }
+              }
+            ]
+          },
+        },
       ];
 
       return { tools };
@@ -263,6 +356,79 @@ export class TallyServer {
           return { content };
         } catch (error) {
           throw new Error(`Error fetching delegators: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "list-proposals") {
+        try {
+          const data = await this.service.listProposals({
+            filters: {
+              organizationId: typeof args.organizationId === 'string' ? args.organizationId.toString() : undefined,
+              governorId: typeof args.governorId === 'string' ? args.governorId : undefined,
+              includeArchived: typeof args.includeArchived === 'boolean' ? args.includeArchived : undefined,
+              isDraft: typeof args.isDraft === 'boolean' ? args.isDraft : undefined,
+            },
+            organizationSlug: typeof args.organizationSlug === 'string' ? args.organizationSlug : undefined,
+            page: {
+              limit: typeof args.limit === 'number' ? args.limit : undefined,
+              afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor.toString() : undefined,
+              beforeCursor: typeof args.beforeCursor === 'string' ? args.beforeCursor.toString() : undefined,
+            },
+            sort: typeof args.isDescending === 'boolean' ? {
+              isDescending: args.isDescending,
+              sortBy: "id"
+            } : undefined
+          });
+
+          const content: TextContent[] = [
+            {
+              type: "text",
+              text: TallyService.formatProposalsList(data.proposals.nodes)
+            }
+          ];
+
+          return { content };
+        } catch (error) {
+          throw new Error(`Error fetching proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "get-proposal") {
+        try {
+          // If we have just an ID, we can use it directly
+          if (typeof args.id === 'string') {
+            const data = await this.service.getProposal({
+              id: args.id,
+              includeArchived: typeof args.includeArchived === 'boolean' ? args.includeArchived : undefined,
+              isLatest: typeof args.isLatest === 'boolean' ? args.isLatest : undefined,
+            });
+            return {
+              content: [{
+                type: "text",
+                text: TallyService.formatProposal(data.proposal)
+              }]
+            };
+          }
+          
+          // If we have onchainId and governorId, use them together
+          if (typeof args.onchainId === 'string' && typeof args.governorId === 'string') {
+            const data = await this.service.getProposal({
+              onchainId: args.onchainId,
+              governorId: args.governorId,
+              includeArchived: typeof args.includeArchived === 'boolean' ? args.includeArchived : undefined,
+              isLatest: typeof args.isLatest === 'boolean' ? args.isLatest : undefined,
+            });
+            return {
+              content: [{
+                type: "text",
+                text: TallyService.formatProposal(data.proposal)
+              }]
+            };
+          }
+
+          throw new Error('Must provide either id or both onchainId and governorId');
+        } catch (error) {
+          throw new Error(`Error fetching proposal: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 
