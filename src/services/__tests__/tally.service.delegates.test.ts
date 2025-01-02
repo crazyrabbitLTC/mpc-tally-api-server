@@ -121,4 +121,51 @@ describe('TallyService - Delegates', () => {
       ).rejects.toThrow();
     }, 60000);
   });
+
+  describe('formatDelegatorsList', () => {
+    it('should format delegators list correctly with token information', () => {
+      const mockDelegators = [{
+        chainId: 'eip155:1',
+        delegator: {
+          address: '0x123',
+          name: 'Test Delegator',
+          ens: 'test.eth'
+        },
+        blockNumber: 12345,
+        blockTimestamp: '2023-01-01T00:00:00Z',
+        votes: '1000000000000000000',
+        token: {
+          id: 'token-id',
+          name: 'Test Token',
+          symbol: 'TEST',
+          decimals: 18
+        }
+      }];
+
+      const formatted = TallyService.formatDelegatorsList(mockDelegators);
+      expect(formatted).toContain('Test Delegator');
+      expect(formatted).toContain('0x123');
+      expect(formatted).toContain('1 TEST'); // Check formatted votes with token symbol
+      expect(formatted).toContain('Test Token');
+    });
+
+    it('should format delegators list correctly without token information', () => {
+      const mockDelegators = [{
+        chainId: 'eip155:1',
+        delegator: {
+          address: '0x123',
+          name: 'Test Delegator',
+          ens: 'test.eth'
+        },
+        blockNumber: 12345,
+        blockTimestamp: '2023-01-01T00:00:00Z',
+        votes: '1000000000000000000'
+      }];
+
+      const formatted = TallyService.formatDelegatorsList(mockDelegators);
+      expect(formatted).toContain('Test Delegator');
+      expect(formatted).toContain('0x123');
+      expect(formatted).toContain('1'); // Check formatted votes without token symbol
+    });
+  });
 }); 

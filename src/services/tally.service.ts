@@ -93,6 +93,13 @@ export interface PageInfo {
   lastCursor: string | null;
 }
 
+export interface TokenInfo {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+}
+
 interface Delegate {
   id: string;
   account: {
@@ -170,6 +177,20 @@ export interface GetDelegatorsParams {
 export class TallyService {
   private client: GraphQLClient;
   private static readonly DEFAULT_BASE_URL = 'https://api.tally.xyz/query';
+
+  /**
+   * Format a vote amount considering token decimals
+   * @param {string} votes - The raw vote amount
+   * @param {TokenInfo} token - Optional token info containing decimals and symbol
+   * @returns {string} Formatted vote amount with optional symbol
+   */
+  private static formatVotes(votes: string, token?: TokenInfo): string {
+    const val = BigInt(votes);
+    const decimals = token?.decimals ?? 18;
+    const denominator = BigInt(10 ** decimals);
+    const formatted = (Number(val) / Number(denominator)).toLocaleString();
+    return `${formatted}${token?.symbol ? ` ${token.symbol}` : ''}`;
+  }
 
   // GraphQL Queries
   private static readonly LIST_DAOS_QUERY = gql`
@@ -688,7 +709,7 @@ export class TallyService {
       delegators.map(delegation =>
         `${delegation.delegator.name || delegation.delegator.ens || delegation.delegator.address}\n` +
         `Address: ${delegation.delegator.address}\n` +
-        `Votes: ${delegation.votes}\n` +
+        `Votes: ${TallyService.formatVotes(delegation.votes, delegation.token)}\n` +
         `Delegated at: Block ${delegation.blockNumber} (${new Date(delegation.blockTimestamp).toLocaleString()})\n` +
         `${delegation.token ? `Token: ${delegation.token.symbol} (${delegation.token.name})\n` : ''}` +
         '---'
