@@ -2,6 +2,8 @@
 
 A Model Context Protocol (MCP) server for interacting with the Tally API. This server allows AI agents to fetch information about DAOs, including their governance data, proposals, and metadata.
 
+<a href="https://glama.ai/mcp/servers/xqt9xzqlm6"><img width="380" height="200" src="https://glama.ai/mcp/servers/xqt9xzqlm6/badge" alt="MPC Tally API Server MCP server" /></a>
+
 ## Features
 
 - List DAOs sorted by popularity or exploration status
