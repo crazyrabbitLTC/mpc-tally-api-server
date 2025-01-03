@@ -1,5 +1,7 @@
 # MPC Tally API Server
 
+[![smithery badge](https://smithery.ai/badge/mpc-tally-api-server)](https://smithery.ai/server/mpc-tally-api-server)
+
 A Model Context Protocol (MCP) server for interacting with the Tally API. This server allows AI agents to fetch information about DAOs, including their governance data, proposals, and metadata.
 
 ## Features
@@ -12,6 +14,15 @@ A Model Context Protocol (MCP) server for interacting with the Tally API. This s
 
 ## Installation
 
+### Installing via Smithery
+
+To install Tally API Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mpc-tally-api-server):
+
+```bash
+npx -y @smithery/cli install mpc-tally-api-server --client claude
+```
+
+### Manual Installation
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/mpc-tally-api-server.git
