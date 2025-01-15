@@ -5,6 +5,7 @@ import { listDelegates } from './delegates/listDelegates.js';
 import { getDelegators } from './delegators/getDelegators.js';
 import { listProposals } from './proposals/listProposals.js';
 import { getProposal } from './proposals/getProposal.js';
+import { getAddressProposals } from './addresses/getAddressProposals.js';
 import type { 
   Organization,
   OrganizationsResponse,
@@ -19,6 +20,7 @@ import type {
   ProposalInput,
   ProposalDetailsResponse,
 } from './proposals/index.js';
+import type { AddressProposalsInput, AddressProposalsResponse } from './addresses/addresses.types.js';
 
 export interface TallyServiceConfig {
   apiKey: string;
@@ -85,7 +87,7 @@ export const OPENAI_FUNCTION_DEFINITIONS: OpenAIFunctionDefinition[] = [
       properties: {
         organizationIdOrSlug: {
           type: "string",
-          description: "The organization's ID or slug (e.g., 'arbitrum' or 'eip155:1:123')",
+          description: "The organization's ID, governor ID (eip155 format), or slug (e.g., 'arbitrum', 'eip155:1:123', or numeric ID)",
         },
         limit: {
           type: "number",
@@ -245,6 +247,28 @@ export const OPENAI_FUNCTION_DEFINITIONS: OpenAIFunctionDefinition[] = [
       ],
     },
   },
+  {
+    name: "get-address-proposals-created",
+    description: "Returns proposals created by a given address",
+    parameters: {
+      type: "object",
+      required: ["address"],
+      properties: {
+        address: {
+          type: "string",
+          description: "The Ethereum address",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of proposals to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination",
+        },
+      },
+    },
+  },
 ];
 
 export class TallyService {
@@ -314,6 +338,10 @@ export class TallyService {
 
   async getProposal(input: ProposalInput & { organizationSlug?: string }): Promise<ProposalDetailsResponse> {
     return getProposal(this.client, input);
+  }
+
+  async getAddressProposals(input: AddressProposalsInput): Promise<AddressProposalsResponse> {
+    return getAddressProposals(this.client, input);
   }
 
   // Keep the formatting utility functions in the service
