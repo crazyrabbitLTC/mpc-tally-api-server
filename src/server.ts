@@ -469,6 +469,46 @@ export class TallyServer {
         }
       }
 
+      if (name === "get-address-daos-proposals") {
+        try {
+          if (typeof args.address !== 'string') {
+            throw new Error('address must be a string');
+          }
+
+          const result = await this.service.getAddressDAOProposals({
+            address: args.address,
+            limit: args.limit,
+            afterCursor: args.afterCursor,
+          });
+
+          const proposals = result.proposals.nodes;
+          const content = proposals.map(proposal => ({
+            id: proposal.id,
+            onchainId: proposal.onchainId,
+            governorId: proposal.governor.id,
+            organizationId: proposal.governor.organization.id,
+            organizationName: proposal.governor.organization.name,
+            organizationSlug: proposal.governor.organization.slug,
+            description: proposal.metadata?.description,
+            status: proposal.status,
+            createdAt: proposal.createdAt,
+            blockTimestamp: proposal.block?.timestamp,
+            proposerAddress: proposal.proposer?.address,
+            creatorAddress: proposal.creator?.address,
+            startTimestamp: proposal.start?.timestamp,
+            voteStats: proposal.voteStats,
+            participationType: proposal.participationType,
+          }));
+
+          return {
+            content,
+            pageInfo: result.proposals.pageInfo,
+          };
+        } catch (error) {
+          throw new Error(`Error fetching address DAO proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
       throw new Error(`Unknown tool: ${name}`);
     });
   }
