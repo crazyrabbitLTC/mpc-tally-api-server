@@ -33,4 +33,59 @@ export const GET_ADDRESS_PROPOSALS_QUERY = gql`
       }
     }
   }
+`;
+
+export const GET_ADDRESS_DAO_PROPOSALS_QUERY = gql`
+  query GetAddressDAOSProposals($input: ProposalsInput!, $address: Address!) {
+    proposals(input: $input) {
+      nodes {
+        ... on Proposal {
+          id
+          createdAt
+          onchainId
+          originalId
+          metadata {
+            description
+          }
+          governor {
+            id
+            organization {
+              id
+              name
+              slug
+            }
+          }
+          block {
+            timestamp
+          }
+          proposer {
+            address
+          }
+          creator {
+            address
+          }
+          start {
+            ... on Block {
+              timestamp
+            }
+            ... on BlocklessTimestamp {
+              timestamp
+            }
+          }
+          status
+          voteStats {
+            votesCount
+            votersCount
+            type
+            percent
+          }
+          participationType(address: $address)
+        }
+      }
+      pageInfo {
+        firstCursor
+        lastCursor
+      }
+    }
+  }
 `; 

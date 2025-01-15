@@ -120,6 +120,26 @@ describe('TallyService - Delegates', () => {
         })
       ).rejects.toThrow();
     }, 60000);
+
+    it('should handle governor ID with organization slug correctly', async () => {
+      const result = await tallyService.listDelegates({
+        organizationId: 'eip155:1:0x408ED6354d4973f66138C91495F2f2FCbd8724C3', // Uniswap governor ID
+        organizationSlug: 'uniswap',
+        limit: 5,
+      });
+
+      expect(result).toBeDefined();
+      expect(result.delegates).toBeInstanceOf(Array);
+      expect(result.delegates.length).toBeLessThanOrEqual(5);
+      expect(result.pageInfo).toBeDefined();
+    }, 60000);
+
+    it('should reject governor ID without organization slug', async () => {
+      await expect(tallyService.listDelegates({
+        organizationId: 'eip155:1:0x408ED6354d4973f66138C91495F2f2FCbd8724C3', // Uniswap governor ID
+        limit: 5,
+      })).rejects.toThrow('Organization slug is required when using a governor ID as organization ID');
+    });
   });
 
   describe('formatDelegatorsList', () => {

@@ -13,4 +13,20 @@ export interface AddressProposalsResponse {
     nodes: Proposal[];
     pageInfo: PageInfo;
   };
+}
+
+export interface AddressDAOProposalsInput {
+  address: string;
+  limit?: number;
+  afterCursor?: string;
+  beforeCursor?: string;
+}
+
+export interface AddressDAOProposalsResponse {
+  proposals: {
+    nodes: (Proposal & {
+      participationType?: string;
+    })[];
+    pageInfo: PageInfo;
+  };
 } 
