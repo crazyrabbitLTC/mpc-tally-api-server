@@ -271,6 +271,28 @@ export const OPENAI_FUNCTION_DEFINITIONS: OpenAIFunctionDefinition[] = [
       },
     },
   },
+  {
+    name: "get-address-daos-proposals",
+    description: "Returns proposals from DAOs where a given address has participated (voted, proposed, etc.)",
+    parameters: {
+      type: "object",
+      required: ["address"],
+      properties: {
+        address: {
+          type: "string",
+          description: "The Ethereum address",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of proposals to return (default: 20, max: 50)",
+        },
+        afterCursor: {
+          type: "string",
+          description: "Cursor for pagination",
+        },
+      },
+    },
+  },
 ];
 
 export class TallyService {
