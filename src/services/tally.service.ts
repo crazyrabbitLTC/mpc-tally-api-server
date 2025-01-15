@@ -6,6 +6,7 @@ import { getDelegators } from './delegators/getDelegators.js';
 import { listProposals } from './proposals/listProposals.js';
 import { getProposal } from './proposals/getProposal.js';
 import { getAddressProposals } from './addresses/getAddressProposals.js';
+import { getAddressDAOProposals } from './addresses/getAddressDAOProposals.js';
 import type { 
   Organization,
   OrganizationsResponse,
@@ -21,6 +22,7 @@ import type {
   ProposalDetailsResponse,
 } from './proposals/index.js';
 import type { AddressProposalsInput, AddressProposalsResponse } from './addresses/addresses.types.js';
+import type { AddressDAOProposalsInput, AddressDAOProposalsResponse } from './addresses/addresses.types.js';
 
 export interface TallyServiceConfig {
   apiKey: string;
@@ -342,6 +344,10 @@ export class TallyService {
 
   async getAddressProposals(input: AddressProposalsInput): Promise<AddressProposalsResponse> {
     return getAddressProposals(this.client, input);
+  }
+
+  async getAddressDAOProposals(input: AddressDAOProposalsInput): Promise<AddressDAOProposalsResponse> {
+    return getAddressDAOProposals(this.client, input);
   }
 
   // Keep the formatting utility functions in the service
