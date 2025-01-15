@@ -82,7 +82,7 @@ export class TallyServer {
             properties: {
               organizationIdOrSlug: {
                 type: "string",
-                description: "The organization's ID or slug (e.g., 'arbitrum' or 'eip155:1:123')",
+                description: "The organization's ID, governor ID (eip155 format), or slug (e.g., 'arbitrum', 'eip155:1:123', or numeric ID)",
               },
               limit: {
                 type: "number",
@@ -302,18 +302,22 @@ export class TallyServer {
             throw new Error('organizationIdOrSlug must be a string');
           }
 
-          // Determine if the input is an ID or slug
-          // If it contains 'eip155' or is numeric, treat as ID, otherwise as slug
-          const isId = args.organizationIdOrSlug.includes('eip155') || /^\d+$/.test(args.organizationIdOrSlug);
+          // Determine if the input is an ID, governor ID, or slug
+          const isGovernorId = args.organizationIdOrSlug.startsWith('eip155:');
+          const isNumericId = /^\d+$/.test(args.organizationIdOrSlug);
           
-          const data = await this.service.listDelegates({
-            ...(isId ? { organizationId: args.organizationIdOrSlug } : { organizationSlug: args.organizationIdOrSlug }),
+          const params = {
+            ...(isGovernorId ? { organizationId: args.organizationIdOrSlug } : {}),
+            ...(isNumericId ? { organizationId: args.organizationIdOrSlug } : {}),
+            ...(!isGovernorId && !isNumericId ? { organizationSlug: args.organizationIdOrSlug } : {}),
             limit: typeof args.limit === 'number' ? args.limit : undefined,
             afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
             hasVotes: typeof args.hasVotes === 'boolean' ? args.hasVotes : undefined,
             hasDelegators: typeof args.hasDelegators === 'boolean' ? args.hasDelegators : undefined,
             isSeekingDelegation: typeof args.isSeekingDelegation === 'boolean' ? args.isSeekingDelegation : undefined,
-          });
+          };
+
+          const data = await this.service.listDelegates(params);
 
           const content: TextContent[] = [
             {
@@ -429,6 +433,31 @@ export class TallyServer {
           throw new Error('Must provide either id or both onchainId and governorId');
         } catch (error) {
           throw new Error(`Error fetching proposal: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "get-address-proposals-created") {
+        try {
+          if (typeof args.address !== 'string') {
+            throw new Error('address must be a string');
+          }
+
+          const data = await this.service.getAddressProposals({
+            address: args.address,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
+          });
+
+          const content: TextContent[] = [
+            {
+              type: "text",
+              text: TallyService.formatProposalsList(data.proposals.nodes)
+            }
+          ];
+
+          return { content };
+        } catch (error) {
+          throw new Error(`Error fetching address proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 
