@@ -442,20 +442,28 @@ export class TallyServer {
             throw new Error('address must be a string');
           }
 
-          const data = await this.service.getAddressProposals({
+          const result = await this.service.getAddressProposals({
             address: args.address,
-            limit: typeof args.limit === 'number' ? args.limit : undefined,
-            afterCursor: typeof args.afterCursor === 'string' ? args.afterCursor : undefined,
+            limit: args.limit,
+            afterCursor: args.afterCursor,
           });
 
-          const content: TextContent[] = [
-            {
-              type: "text",
-              text: TallyService.formatProposalsList(data.proposals.nodes)
-            }
-          ];
+          const proposals = result.proposals.nodes;
+          const content = proposals.map(proposal => ({
+            id: proposal.id,
+            onchainId: proposal.onchainId,
+            governorId: proposal.governor.id,
+            description: proposal.metadata?.description,
+            status: proposal.status,
+            createdAt: proposal.createdAt,
+            blockTimestamp: proposal.block?.timestamp,
+            voteStats: proposal.voteStats,
+          }));
 
-          return { content };
+          return {
+            content,
+            pageInfo: result.proposals.pageInfo,
+          };
         } catch (error) {
           throw new Error(`Error fetching address proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
