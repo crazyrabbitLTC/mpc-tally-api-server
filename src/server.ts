@@ -246,6 +246,76 @@ export class TallyServer {
             ]
           },
         },
+        {
+          name: "get-address-votes",
+          description: "Returns votes cast by a given address",
+          inputSchema: {
+            type: "object",
+            required: ["address", "organizationSlug"],
+            properties: {
+              address: {
+                type: "string",
+                description: "The Ethereum address",
+              },
+              organizationSlug: {
+                type: "string",
+                description: "The organization's slug (e.g., 'uniswap')",
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of votes to return (default: 20, max: 50)",
+              },
+              afterCursor: {
+                type: "string",
+                description: "Cursor for pagination",
+              },
+            },
+          },
+        },
+        {
+          name: "get-address-created-proposals",
+          description: "Returns proposals created by a given address",
+          inputSchema: {
+            type: "object",
+            required: ["address"],
+            properties: {
+              address: {
+                type: "string",
+                description: "The Ethereum address",
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of proposals to return (default: 20, max: 50)",
+              },
+              afterCursor: {
+                type: "string",
+                description: "Cursor for pagination",
+              },
+            },
+          },
+        },
+        {
+          name: "get-address-daos-proposals",
+          description: "Returns proposals from DAOs where a given address has participated (voted, proposed, etc.)",
+          inputSchema: {
+            type: "object",
+            required: ["address"],
+            properties: {
+              address: {
+                type: "string",
+                description: "The Ethereum address",
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of proposals to return (default: 20, max: 50)",
+              },
+              afterCursor: {
+                type: "string",
+                description: "Cursor for pagination",
+              },
+            },
+          },
+        },
       ];
 
       return { tools };
@@ -506,6 +576,75 @@ export class TallyServer {
           };
         } catch (error) {
           throw new Error(`Error fetching address DAO proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "get-address-votes") {
+        try {
+          if (typeof args.address !== 'string') {
+            throw new Error('address must be a string');
+          }
+          if (typeof args.organizationSlug !== 'string') {
+            throw new Error('organizationSlug must be a string');
+          }
+
+          const result = await this.service.getAddressVotes({
+            address: args.address,
+            organizationSlug: args.organizationSlug,
+            limit: args.limit,
+            afterCursor: args.afterCursor,
+          });
+
+          const votes = result.votes.nodes;
+          const content = votes.map(vote => ({
+            id: vote.id,
+            type: vote.type,
+            amount: vote.amount,
+            reason: vote.reason,
+            blockTimestamp: vote.block?.timestamp,
+            proposal: vote.proposal,
+            voter: vote.voter,
+          }));
+
+          return {
+            content,
+            pageInfo: result.votes.pageInfo,
+          };
+        } catch (error) {
+          throw new Error(`Error fetching address votes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      if (name === "get-address-created-proposals") {
+        try {
+          if (typeof args.address !== 'string') {
+            throw new Error('address must be a string');
+          }
+
+          const result = await this.service.getAddressCreatedProposals({
+            address: args.address,
+            limit: args.limit,
+            afterCursor: args.afterCursor,
+          });
+
+          const proposals = result.proposals.nodes;
+          const content = proposals.map(proposal => ({
+            id: proposal.id,
+            onchainId: proposal.onchainId,
+            governorId: proposal.governor.id,
+            description: proposal.metadata?.description,
+            status: proposal.status,
+            createdAt: proposal.createdAt,
+            blockTimestamp: proposal.block?.timestamp,
+            voteStats: proposal.voteStats,
+          }));
+
+          return {
+            content,
+            pageInfo: result.proposals.pageInfo,
+          };
+        } catch (error) {
+          throw new Error(`Error fetching address created proposals: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 
