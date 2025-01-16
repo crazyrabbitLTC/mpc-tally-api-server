@@ -68,4 +68,53 @@ export interface AddressVotesResponse {
       lastCursor: string;
     };
   };
+}
+
+export interface AddressCreatedProposalsInput {
+  address: string;
+  limit?: number;
+  afterCursor?: string;
+  beforeCursor?: string;
+}
+
+export interface AddressCreatedProposalsResponse {
+  proposals: {
+    nodes: Array<{
+      id: string;
+      onchainId: string;
+      originalId: string;
+      governor: {
+        id: string;
+        name: string;
+        organization: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      };
+      metadata: {
+        title: string;
+        description: string;
+      };
+      status: string;
+      createdAt: string;
+      block: {
+        timestamp: string;
+      };
+      proposer: {
+        address: string;
+        name: string | null;
+      };
+      voteStats: {
+        votesCount: string;
+        votersCount: string;
+        type: string;
+        percent: string;
+      };
+    }>;
+    pageInfo: {
+      firstCursor: string;
+      lastCursor: string;
+    };
+  };
 } 

@@ -131,4 +131,50 @@ export const GET_ADDRESS_VOTES_QUERY = gql`
       }
     }
   }
+`;
+
+export const GET_ADDRESS_CREATED_PROPOSALS_QUERY = gql`
+  query GetAddressCreatedProposals($input: ProposalsInput!) {
+    proposals(input: $input) {
+      nodes {
+        ... on Proposal {
+          id
+          onchainId
+          originalId
+          governor {
+            id
+            name
+            organization {
+              id
+              name
+              slug
+            }
+          }
+          metadata {
+            title
+            description
+          }
+          status
+          createdAt
+          block {
+            timestamp
+          }
+          proposer {
+            address
+            name
+          }
+          voteStats {
+            votesCount
+            votersCount
+            type
+            percent
+          }
+        }
+      }
+      pageInfo {
+        firstCursor
+        lastCursor
+      }
+    }
+  }
 `; 
