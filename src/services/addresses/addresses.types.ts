@@ -17,7 +17,8 @@ export interface AddressProposalsResponse {
 
 export interface AddressDAOProposalsInput {
   address: string;
-  governorId: string;
+  governorId?: string;
+  organizationSlug?: string;
   limit?: number;
   afterCursor?: string;
 }
