@@ -88,4 +88,47 @@ export const GET_ADDRESS_DAO_PROPOSALS_QUERY = gql`
       }
     }
   }
+`;
+
+const VOTE_FIELDS = gql`
+  fragment VoteFields on Vote {
+    id
+    voter {
+      address
+    }
+    proposal {
+      id
+      governor {
+        id
+        organization {
+          id
+          name
+          slug
+        }
+      }
+    }
+    type
+    amount
+    reason
+    block {
+      timestamp
+    }
+  }
+`;
+
+export const GET_ADDRESS_VOTES_QUERY = gql`
+  ${VOTE_FIELDS}
+  query GetVotes($input: VotesInput!) {
+    votes(input: $input) {
+      nodes {
+        ... on Vote {
+          ...VoteFields
+        }
+      }
+      pageInfo {
+        firstCursor
+        lastCursor
+      }
+    }
+  }
 `; 

@@ -29,4 +29,43 @@ export interface AddressDAOProposalsResponse {
     })[];
     pageInfo: PageInfo;
   };
+}
+
+export interface Vote {
+  id: string;
+  voter: {
+    address: string;
+  };
+  proposal: {
+    id: string;
+    governor: {
+      id: string;
+      organization: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    };
+  };
+  type: 'for' | 'against' | 'abstain';
+  amount: string;
+  reason: string | null;
+  block: {
+    timestamp: string;
+  };
+}
+
+export interface AddressVotesInput {
+  address: string;
+  organizationSlug: string;
+}
+
+export interface AddressVotesResponse {
+  votes: {
+    nodes: Vote[];
+    pageInfo: {
+      firstCursor: string;
+      lastCursor: string;
+    };
+  };
 } 
