@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/crazyrabbitltc-mpc-tally-api-server-badge.png)](https://mseep.ai/app/crazyrabbitltc-mpc-tally-api-server)
+
 # MPC Tally API Server
 
 A Model Context Protocol (MCP) server for interacting with the Tally API. This server allows AI agents to fetch information about DAOs, including their governance data, proposals, and metadata.
